@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mundial sin spoiler — DSports</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#151c25; --card2:#1c2530; --line:#26313d;
+    --txt:#e8eef5; --muted:#8aa0b4; --accent:#34d27b; --accent2:#1aa3ff;
+    --warn:#f0b042; --danger:#ff5d5d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  header{padding:22px 18px 8px;max-width:1000px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 2px;font-weight:800;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin:0}
+  .bar{max-width:1000px;margin:14px auto 0;padding:0 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .paste{flex:1;min-width:220px;display:flex;gap:8px}
+  input[type=text]{flex:1;background:var(--card);border:1px solid var(--line);color:var(--txt);
+    padding:11px 13px;border-radius:11px;font-size:14px;outline:none}
+  input[type=text]::placeholder{color:#62788c}
+  button{cursor:pointer;border:0;border-radius:11px;font-size:14px;font-weight:700;
+    padding:11px 15px;color:#06120b;background:var(--accent)}
+  button.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+  button:active{transform:translateY(1px)}
+  .grid{max-width:1000px;margin:18px auto 60px;padding:0 18px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .match{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 15px 13px;
+    display:flex;flex-direction:column;gap:11px;transition:.15s;position:relative;overflow:hidden}
+  .match:hover{border-color:#3a4a5c;transform:translateY(-2px)}
+  .match.seen{opacity:.5}
+  .teams{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:800;line-height:1.15}
+  .teams .vs{color:var(--muted);font-size:13px;font-weight:700;padding:0 2px}
+  .flag{font-size:23px;line-height:1}
+  .meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .when{color:var(--muted);font-size:12.5px}
+  .tag{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+    color:var(--accent2);background:rgba(26,163,255,.12);padding:3px 8px;border-radius:999px}
+  .row{display:flex;gap:8px;align-items:center}
+  .play{flex:1;background:var(--accent);color:#06120b;display:flex;align-items:center;justify-content:center;gap:7px}
+  .seenbtn{background:var(--card2);color:var(--muted);border:1px solid var(--line);padding:11px 12px}
+  .seen .play{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+  .seenflag{position:absolute;top:0;right:0;background:var(--accent);color:#06120b;
+    font-size:10px;font-weight:800;padding:3px 9px;border-bottom-left-radius:10px;display:none}
+  .seen .seenflag{display:block}
+  #status{max-width:1000px;margin:0 auto;padding:6px 18px;color:var(--muted);font-size:13px;min-height:20px}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px 10px;line-height:1.6}
+  /* ---- player ---- */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.93);display:none;z-index:50;
+    align-items:center;justify-content:center;padding:18px}
+  #modal.on{display:flex}
+  .box{width:100%;max-width:1080px}
+  .stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;
+    box-shadow:0 20px 70px rgba(0,0,0,.6)}
+  .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #ytmount{position:absolute;inset:0;width:100%;height:100%}
+  #ytmask{position:absolute;top:0;left:0;right:0;height:62px;background:#000;
+    opacity:1;transition:opacity .2s;pointer-events:none;z-index:3}
+  .stage:hover #ytmask{opacity:1}
+  #ytcover{position:absolute;inset:0;background:#000;z-index:4;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
+  .spin{width:34px;height:34px;border:3px solid #2a3540;border-top-color:var(--accent);
+    border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #coverTxt{color:var(--muted);font-size:13px}
+  #coverActions{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
+  .bigplay{display:none;font-size:18px;padding:16px 30px;border-radius:14px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
+  .topbar .ttl{font-weight:800;font-size:15px;color:var(--txt)}
+  .close{background:var(--card2);color:var(--txt);border:1px solid var(--line);padding:8px 13px;border-radius:10px}
+  .note{max-width:1000px;margin:8px auto 50px;padding:14px 18px;color:var(--muted);font-size:12.5px;line-height:1.6}
+  .note b{color:var(--txt)}
+  a{color:var(--accent2)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ Mundial sin spoiler</h1>
+  <p class="sub">Resúmenes de DSports — sin nombre, sin imagen, sin marcador hasta que le das play.</p>
+</header>
+
+<div class="bar">
+  <div class="paste">
+    <input id="link" type="text" placeholder="…o pega aquí un link de YouTube y dale play directo">
+    <button onclick="playFromInput()">▶ Play</button>
+  </div>
+  <button class="ghost" onclick="load(true)">↻ Actualizar</button>
+</div>
+
+<div id="status"></div>
+<div class="grid" id="grid"></div>
+
+<div class="note">
+  <b>Cómo funciona:</b> la lista se actualiza sola cada vez que abres esta página (jala lo último que subió el canal).
+  Solo muestra partidos del Mundial, sin el resultado. Al darle play tapa el título, la miniatura y los videos sugeridos del final.<br>
+  <b>Tip:</b> ábrelo en <b>Chrome</b> para que arranque con sonido al toque. Si la lista no carga, dale a <b>↻ Actualizar</b> (a veces el relay tarda).
+</div>
+
+<!-- PLAYER -->
+<div id="modal">
+  <div class="box">
+    <div class="topbar">
+      <div class="ttl" id="mtitle">Reproduciendo…</div>
+      <button class="close" onclick="closePlayer()">✕ Cerrar</button>
+    </div>
+    <div class="stage" id="stage">
+      <div id="ytmount"></div>
+      <div id="ytmask"></div>
+      <div id="ytcover">
+        <div class="spin" id="coverSpin"></div>
+        <div id="coverTxt">Cargando sin spoiler…</div>
+        <button id="coverTap" class="bigplay" onclick="manualPlay()">▶ Reproducir</button>
+        <div id="coverActions">
+          <button onclick="replay()">↻ Ver de nuevo</button>
+          <button class="ghost" onclick="closePlayer()">✕ Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== Config ===== */
+const CHANNEL_ID = 'UCWSsHdxrwVLlOSdPJ44y9sw';
+const FEEDS = [
+  'https://www.youtube.com/feeds/videos.xml?channel_id=' + CHANNEL_ID,
+  'https://www.youtube.com/feeds/videos.xml?playlist_id=PLlDA_e1cBD7l4hK0N9eKCvKcCLhPh_UPw'
+];
+const PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + u,
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://thingproxy.freeboard.io/fetch/' + u
+];
+const MAX_CARDS = 20;
+// semilla: últimos resúmenes ya detectados (sin marcador; solo id + equipos + fecha aprox)
+const SEED = [{"id":"t1EwOwZWH60","a":"sudafrica","b":"canada","pub":"2026-06-28T21:00:00Z"},{"id":"5uwje8lSYHo","a":"argelia","b":"austria","pub":"2026-06-28T05:00:00Z"},{"id":"HXPKaDTs_T8","a":"jordania","b":"argentina","pub":"2026-06-28T04:00:00Z"},{"id":"t6c7fKqcD2w","a":"colombia","b":"portugal","pub":"2026-06-28T03:00:00Z"},{"id":"3Oyf7jN6XB4","a":"rd congo","b":"uzbekistan","pub":"2026-06-28T03:00:00Z"},{"id":"xHa_J1B6JYg","a":"croacia","b":"ghana","pub":"2026-06-28T03:00:00Z"},{"id":"7AboOnR_GUk","a":"panama","b":"inglaterra","pub":"2026-06-28T03:00:00Z"},{"id":"WM8L4iB8YbQ","a":"egipto","b":"iran","pub":"2026-06-28T03:00:00Z"},{"id":"YINZv4P2So0","a":"nueva zelanda","b":"belgica","pub":"2026-06-28T03:00:00Z"},{"id":"J3ltGju8qaI","a":"noruega","b":"francia","pub":"2026-06-27T03:00:00Z"},{"id":"Jut5rMlKB9M","a":"uruguay","b":"espana","pub":"2026-06-27T03:00:00Z"},{"id":"OE4qXCIh2Zc","a":"turquia","b":"estados unidos","pub":"2026-06-27T03:00:00Z"},{"id":"4tg7z-A84ec","a":"paraguay","b":"australia","pub":"2026-06-27T03:00:00Z"},{"id":"JQY90bv2i9o","a":"tunez","b":"paises bajos","pub":"2026-06-26T03:00:00Z"},{"id":"haaaX3kunMc","a":"japon","b":"suecia","pub":"2026-06-26T03:00:00Z"},{"id":"bSlHi2wCw4c","a":"ecuador","b":"alemania","pub":"2026-06-26T03:00:00Z"},{"id":"YUIfDny5Cjo","a":"chequia","b":"mexico","pub":"2026-06-26T03:00:00Z"},{"id":"Z2vQOR3mj3c","a":"suiza","b":"canada","pub":"2026-06-25T03:00:00Z"},{"id":"LBTKo_V0QDg","a":"marruecos","b":"haiti","pub":"2026-06-25T03:00:00Z"},{"id":"oJJ80ls6z8U","a":"portugal","b":"uzbekistan","pub":"2026-06-24T03:00:00Z"}];
+
+/* ===== Selecciones nacionales (para distinguir Mundial de partidos de clubes) ===== */
+const NATIONS = {};
+[
+  ['argentina','🇦🇷','Argentina'],['brasil','🇧🇷','Brasil'],['uruguay','🇺🇾','Uruguay'],['chile','🇨🇱','Chile'],['colombia','🇨🇴','Colombia'],
+  ['peru','🇵🇪','Perú'],['ecuador','🇪🇨','Ecuador'],['paraguay','🇵🇾','Paraguay'],['bolivia','🇧🇴','Bolivia'],['venezuela','🇻🇪','Venezuela'],
+  ['mexico','🇲🇽','México'],['estados unidos','🇺🇸','Estados Unidos'],['canada','🇨🇦','Canadá'],['costa rica','🇨🇷','Costa Rica'],['panama','🇵🇦','Panamá'],
+  ['honduras','🇭🇳','Honduras'],['jamaica','🇯🇲','Jamaica'],['haiti','🇭🇹','Haití'],['el salvador','🇸🇻','El Salvador'],['guatemala','🇬🇹','Guatemala'],['curazao','🇨🇼','Curazao'],
+  ['espana','🇪🇸','España'],['francia','🇫🇷','Francia'],['inglaterra','🏴󠁧󠁢󠁥󠁮󠁧󠁿','Inglaterra'],['alemania','🇩🇪','Alemania'],['italia','🇮🇹','Italia'],
+  ['portugal','🇵🇹','Portugal'],['paises bajos','🇳🇱','Países Bajos'],['holanda','🇳🇱','Países Bajos'],['belgica','🇧🇪','Bélgica'],['croacia','🇭🇷','Croacia'],
+  ['suiza','🇨🇭','Suiza'],['dinamarca','🇩🇰','Dinamarca'],['suecia','🇸🇪','Suecia'],['noruega','🇳🇴','Noruega'],['polonia','🇵🇱','Polonia'],
+  ['austria','🇦🇹','Austria'],['serbia','🇷🇸','Serbia'],['escocia','🏴󠁧󠁢󠁳󠁣󠁴󠁿','Escocia'],['gales','🏴󠁧󠁢󠁷󠁬󠁳󠁿','Gales'],['ucrania','🇺🇦','Ucrania'],
+  ['turquia','🇹🇷','Turquía'],['grecia','🇬🇷','Grecia'],['rumania','🇷🇴','Rumania'],['hungria','🇭🇺','Hungría'],['chequia','🇨🇿','Chequia'],
+  ['republica checa','🇨🇿','Chequia'],['eslovenia','🇸🇮','Eslovenia'],['eslovaquia','🇸🇰','Eslovaquia'],['irlanda','🇮🇪','Irlanda'],['rusia','🇷🇺','Rusia'],
+  ['marruecos','🇲🇦','Marruecos'],['senegal','🇸🇳','Senegal'],['tunez','🇹🇳','Túnez'],['argelia','🇩🇿','Argelia'],['egipto','🇪🇬','Egipto'],
+  ['nigeria','🇳🇬','Nigeria'],['ghana','🇬🇭','Ghana'],['camerun','🇨🇲','Camerún'],['costa de marfil','🇨🇮','Costa de Marfil'],['sudafrica','🇿🇦','Sudáfrica'],
+  ['mali','🇲🇱','Malí'],['cabo verde','🇨🇻','Cabo Verde'],['angola','🇦🇴','Angola'],['rd congo','🇨🇩','RD Congo'],
+  ['japon','🇯🇵','Japón'],['corea del sur','🇰🇷','Corea del Sur'],['corea','🇰🇷','Corea del Sur'],['australia','🇦🇺','Australia'],['arabia saudita','🇸🇦','Arabia Saudita'],
+  ['iran','🇮🇷','Irán'],['catar','🇶🇦','Catar'],['qatar','🇶🇦','Catar'],['irak','🇮🇶','Irak'],['uzbekistan','🇺🇿','Uzbekistán'],
+  ['jordania','🇯🇴','Jordania'],['nueva zelanda','🇳🇿','Nueva Zelanda'],['china','🇨🇳','China']
+].forEach(([k,f,name]) => NATIONS[k] = { flag:f, name:name });
+
+/* ===== Utils ===== */
+function norm(s){
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toLowerCase().replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+// devuelve {name, flag} si el texto contiene una selección nacional
+function resolveNation(str){      // devuelve la CLAVE del país (ej 'sudafrica') o null
+  const n = norm(str);
+  if(!n) return null;
+  if(NATIONS[n]) return n;
+  let best=null;
+  for(const key in NATIONS){
+    if(key.length < 4) continue;
+    if(n === key || n.endsWith(' '+key) || n.startsWith(key+' ') ||
+       n.endsWith(key) || (' '+n+' ').includes(' '+key+' ')){
+      if(!best || key.length > best.length) best = key;
+    }
+  }
+  return best;
+}
+function nationByKey(k){ return NATIONS[k] || { flag:'⚽', name:k }; }
+
+// del título saca el enfrentamiento SIN el marcador
+function extractMatch(title){
+  const segs = title.split('|').map(s => s.trim());
+  // 1) con marcador:  "Equipo 0–1 Equipo"
+  for(const seg of segs){
+    const m = seg.match(/^(.+?)\s+\d{1,2}\s*[–\-—:]\s*\d{1,2}\s+(.+?)$/u);
+    if(m){
+      const a = resolveNation(m[1]), b = resolveNation(m[2]);
+      if(a && b) return { a, b };
+    }
+  }
+  // 2) sin marcador:  "Equipo vs Equipo"
+  for(const seg of segs){
+    const m = seg.match(/^(.+?)\s+(?:vs\.?|v\/s|x)\s+(.+?)$/iu);
+    if(m){
+      const a = resolveNation(m[1]), b = resolveNation(m[2]);
+      if(a && b) return { a, b };
+    }
+  }
+  return null;
+}
+
+function relTime(iso){
+  const d = new Date(iso), now = new Date();
+  const min = Math.round((now - d)/60000);
+  if(min < 1) return 'recién';
+  if(min < 60) return 'hace ' + min + ' min';
+  const h = Math.round(min/60);
+  if(h < 24) return 'hace ' + h + ' h';
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = d.toLocaleDateString('es-CL',{month:'short'}).replace('.','');
+  const hh = String(d.getHours()).padStart(2,'0'), mi = String(d.getMinutes()).padStart(2,'0');
+  return dd + ' ' + mm + ' ' + hh + ':' + mi;
+}
+
+/* ===== Vistos (localStorage) ===== */
+function seenSet(){ try{ return new Set(JSON.parse(localStorage.getItem('dsp_seen')||'[]')); }catch(e){ return new Set(); } }
+function toggleSeen(id){
+  const s = seenSet();
+  s.has(id) ? s.delete(id) : s.add(id);
+  localStorage.setItem('dsp_seen', JSON.stringify([...s]));
+  render();
+}
+
+/* ===== Carga de datos ===== */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function fetchText(url, raw){
+  for(const p of PROXIES){
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(p(url), { signal: ctrl.signal });
+      clearTimeout(t);
+      if(!r.ok) continue;
+      const txt = await r.text();
+      if(raw){ if(txt && txt.length > 5000) return txt; }
+      else  { if(txt && (txt.includes('<entry') || txt.includes('<feed'))) return txt; }
+    }catch(e){ /* prueba el siguiente proxy */ }
+  }
+  return null;
+}
+
+function parseFeed(xml){
+  const out = [];
+  for(const e of xml.split('<entry>').slice(1)){
+    const id = (e.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)||[])[1];
+    let title = (e.match(/<title>([\s\S]*?)<\/title>/)||[])[1] || '';
+    const pub = (e.match(/<published>([^<]+)<\/published>/)||[])[1];
+    title = title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+                 .replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    if(id) out.push({ id, title, pub });
+  }
+  return out;
+}
+
+/* ===== Store: junta semilla + RSS + scrape + memoria (localStorage) ===== */
+const STORE = new Map();              // id -> {id, a, b, pub}
+function loadStore(){
+  try{ JSON.parse(localStorage.getItem('dsp_matches')||'[]').forEach(m => STORE.set(m.id, m)); }catch(e){}
+  SEED.forEach(m => { if(!STORE.has(m.id)) STORE.set(m.id, m); });
+}
+function saveStore(){ localStorage.setItem('dsp_matches', JSON.stringify([...STORE.values()])); }
+function addMatch(m, exact){
+  if(!m || !m.id || !m.a || !m.b) return;
+  const ex = STORE.get(m.id);
+  if(!ex){ STORE.set(m.id, m); return; }
+  if(exact && m.pub) ex.pub = m.pub;  // el RSS trae fecha exacta y corrige la aprox
+}
+function currentList(){
+  return [...STORE.values()].sort((x,y) => new Date(y.pub) - new Date(x.pub)).slice(0, MAX_CARDS);
+}
+
+async function load(forced){
+  const st = document.getElementById('status');
+  render();                            // pinta al toque lo que ya hay (semilla + memoria)
+  st.textContent = STORE.size ? (forced ? 'Actualizando…' : 'Buscando lo último…') : 'Buscando los resúmenes más nuevos…';
+
+  const stamp = () => {
+    const n = Math.min(STORE.size, MAX_CARDS);
+    st.textContent = n + (n === 1 ? ' resumen' : ' resúmenes') + ' del Mundial · actualizado ' +
+      new Date().toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
+  };
+
+  let online = false;
+  // 1) matches.json (mismo origen, sin relay) — lo refresca solo el bot del repo cada par de horas
+  try{
+    const r = await fetch('matches.json?t=' + Date.now(), { cache:'no-store' });
+    if(r.ok){ const arr = await r.json(); if(Array.isArray(arr)){ online = true; arr.forEach(m => addMatch(m, true)); } }
+  }catch(e){}
+  saveStore(); render();
+  if(STORE.size) stamp();              // ya hay lista: marca "listo" y no esperes al relay
+
+  // 2) RSS del canal en vivo (por si subieron algo recién) — bonus en segundo plano
+  let rss = await Promise.all(FEEDS.map(f => fetchText(f)));
+  if(!rss.some(Boolean)){ await sleep(1200); rss = await Promise.all(FEEDS.map(f => fetchText(f))); }
+  for(const xml of rss){
+    if(!xml) continue; online = true;
+    for(const it of parseFeed(xml)){
+      const mm = extractMatch(it.title);
+      if(mm && norm(it.title).includes('resumen')) addMatch({ id:it.id, a:mm.a, b:mm.b, pub:it.pub }, true);
+    }
+  }
+  saveStore(); render();
+  if(!STORE.size && !online){
+    st.innerHTML = '⚠️ No pude cargar la lista (el relay está caído). Dale a <b>↻ Actualizar</b> en un rato, o pega un link arriba.';
+    return;
+  }
+  stamp();
+}
+
+function render(){
+  const grid = document.getElementById('grid');
+  const seen = seenSet();
+  const list = currentList();
+  if(!list.length){
+    grid.innerHTML = '<div class="empty">Todavía no aparecen resúmenes de partidos del Mundial.<br>Cuando el canal suba uno nuevo, aparece acá al darle <b>↻ Actualizar</b>.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  for(const m of list){
+    const A = nationByKey(m.a), B = nationByKey(m.b);
+    const isSeen = seen.has(m.id);
+    const el = document.createElement('div');
+    el.className = 'match' + (isSeen ? ' seen' : '');
+    el.innerHTML =
+      '<div class="seenflag">✓ visto</div>' +
+      '<div class="meta"><span class="tag">Resumen</span><span class="when">' + relTime(m.pub) + '</span></div>' +
+      '<div class="teams"><span class="flag">' + A.flag + '</span><span>' + A.name + '</span>' +
+        '<span class="vs">vs</span><span class="flag">' + B.flag + '</span><span>' + B.name + '</span></div>' +
+      '<div class="row">' +
+        '<button class="play">▶ Ver sin spoiler</button>' +
+        '<button class="seenbtn" title="marcar visto">' + (isSeen ? '↺' : '✓') + '</button>' +
+      '</div>';
+    el.querySelector('.play').onclick = () => { openPlayer(m.id, A.name + ' vs ' + B.name); markSeen(m.id); };
+    el.querySelector('.seenbtn').onclick = () => toggleSeen(m.id);
+    grid.appendChild(el);
+  }
+}
+function markSeen(id){ const s = seenSet(); if(!s.has(id)){ s.add(id); localStorage.setItem('dsp_seen', JSON.stringify([...s])); render(); } }
+
+/* ===== Player a prueba de spoilers ===== */
+let player = null, ytReady = false, pending = null, currentId = null;
+function loadYTApi(){
+  if(window.YT && window.YT.Player){ ytReady = true; return; }
+  if(document.getElementById('ytapi')) return;
+  const s = document.createElement('script'); s.id = 'ytapi';
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady = function(){
+  ytReady = true;
+  if(pending){ const p = pending; pending = null; reallyOpen(p.id, p.label); }
+};
+
+function parseId(url){
+  if(!url) return null;
+  url = url.trim();
+  if(/^[\w-]{11}$/.test(url)) return url;
+  let m;
+  if((m = url.match(/[?&]v=([\w-]{11})/))) return m[1];
+  if((m = url.match(/youtu\.be\/([\w-]{11})/))) return m[1];
+  if((m = url.match(/\/(?:embed|shorts|live)\/([\w-]{11})/))) return m[1];
+  if((m = url.match(/([\w-]{11})/))) return m[1];
+  return null;
+}
+function playFromInput(){
+  const id = parseId(document.getElementById('link').value);
+  if(!id){ alert('No reconocí el link de YouTube.'); return; }
+  openPlayer(id, 'Video');
+}
+
+let tapTimer = null;
+// modos de la tapa negra: 'load' (cargando) | 'tap' (dale play tú) | 'end' (terminó) | 'hide'
+function coverMode(mode){
+  const cover = document.getElementById('ytcover');
+  const show = (id, on, disp) => { document.getElementById(id).style.display = on ? (disp || 'block') : 'none'; };
+  if(mode === 'hide'){ cover.style.display = 'none'; return; }
+  cover.style.display = 'flex';
+  document.getElementById('ytmask').style.opacity = '1';
+  show('coverSpin', mode === 'load');
+  show('coverTxt',  mode === 'load');
+  show('coverTap',  mode === 'tap', 'inline-flex');
+  show('coverActions', mode === 'end', 'flex');
+}
+
+function openPlayer(id, label){
+  currentId = id;
+  document.getElementById('mtitle').textContent = label || 'Reproduciendo…';
+  document.getElementById('modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  coverMode('load');
+  if(!ytReady){ pending = { id, label }; loadYTApi(); return; }
+  reallyOpen(id, label);
+}
+function armTapFallback(){
+  clearTimeout(tapTimer);
+  // si en 3,5s no arrancó solo (autoplay bloqueado), ofrece botón de play
+  tapTimer = setTimeout(() => {
+    if(document.getElementById('ytcover').style.display !== 'none') coverMode('tap');
+  }, 3500);
+}
+function reallyOpen(id){
+  if(player && player.loadVideoById){ player.loadVideoById(id); player.playVideo(); armTapFallback(); return; }
+  player = new YT.Player('ytmount', {
+    videoId: id,
+    playerVars: { autoplay:1, rel:0, modestbranding:1, playsinline:1, controls:1, iv_load_policy:3, fs:1 },
+    events: {
+      onReady: e => { e.target.playVideo(); armTapFallback(); },
+      onStateChange: onState
+    }
+  });
+}
+function manualPlay(){
+  clearTimeout(tapTimer);
+  try{ player.unMute(); }catch(e){}
+  try{ player.playVideo(); }catch(e){}
+}
+function onState(e){
+  const S = YT.PlayerState;
+  if(e.data === S.PLAYING){ clearTimeout(tapTimer); coverMode('hide'); document.getElementById('ytmask').style.opacity = '0'; }
+  else if(e.data === S.PAUSED){ document.getElementById('ytmask').style.opacity = '1'; }
+  else if(e.data === S.ENDED){ coverMode('end'); }
+}
+function replay(){ if(player && currentId){ coverMode('load'); player.seekTo(0); player.playVideo(); armTapFallback(); } }
+function closePlayer(){
+  document.getElementById('modal').classList.remove('on');
+  document.body.style.overflow = '';
+  clearTimeout(tapTimer);
+  try{ if(player && player.stopVideo) player.stopVideo(); }catch(e){}
+  coverMode('load');
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closePlayer(); });
+document.getElementById('link').addEventListener('keydown', e => { if(e.key === 'Enter') playFromInput(); });
+
+/* ===== Go ===== */
+loadStore();
+load(false);
+</script>
+</body>
+</html>
