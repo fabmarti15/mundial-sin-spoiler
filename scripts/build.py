@@ -31,6 +31,32 @@ def norm(s):
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     return re.sub(r"\s+", " ", re.sub(r"[^a-z\s]", " ", s.lower())).strip()
 
+# confederación de cada selección (para descartar torneos que NO son el Mundial)
+_CONF = {
+    "CONMEBOL": ["argentina","brasil","uruguay","chile","colombia","peru","ecuador","paraguay","bolivia","venezuela"],
+    "CONCACAF": ["mexico","estados unidos","canada","costa rica","panama","honduras","jamaica","haiti","el salvador","guatemala","curazao"],
+    "CAF": ["marruecos","senegal","tunez","argelia","egipto","nigeria","ghana","camerun","costa de marfil","sudafrica","mali","cabo verde","angola","rd congo"],
+    "AFC": ["japon","corea del sur","corea","australia","arabia saudita","iran","catar","qatar","irak","uzbekistan","jordania","china"],
+    "OFC": ["nueva zelanda"],
+    "UEFA": ["espana","francia","inglaterra","alemania","italia","portugal","paises bajos","holanda","belgica","croacia","suiza","dinamarca","suecia","noruega","polonia","austria","serbia","escocia","gales","ucrania","turquia","grecia","rumania","hungria","chequia","republica checa","eslovenia","eslovaquia","irlanda","rusia"],
+}
+CONFED = {k: g for g, ks in _CONF.items() for k in ks}
+
+# torneos que NO son el Mundial (si aparecen en el título, se descarta)
+EXCLUDE = ["sudamericano","eliminatoria","eliminatorias","amistoso","amistosos","copa america",
+    "libertadores","sudamericana","nations league","liga de naciones","intercontinental",
+    "mundial de clubes","sub 20","sub 17","sub 23","sub20","sub17","u20","u17","u23",
+    "femenino","femenina","clasificatorias","retro","laliga","la liga","premier","serie a",
+    "bundesliga","champions","gold cup","copa oro","afcon"]
+BLOCK = set()  # ids a excluir a mano si hiciera falta
+
+def is_mundial(a, b, title):
+    n = norm(title or "")
+    if any(kw in n for kw in EXCLUDE): return False
+    ca, cb = CONFED.get(a), CONFED.get(b)
+    if ca and ca == cb and ca != "UEFA": return False   # 2 de la misma confed (no-UEFA) => no es fase de grupos del Mundial
+    return True
+
 def resolve(s):
     n = norm(s)
     if not n: return None
@@ -129,12 +155,18 @@ def main():
             mm = extract(title)
             if not (mm and "resumen" in norm(title)): continue
             a, b = mm
+            if vid in BLOCK or not is_mundial(a, b, title): continue
             if vid not in store:
                 store[vid] = {"id": vid, "a": a, "b": b, "pub": iso}
                 found += 1
             elif kind == "rss" and iso:
                 store[vid]["pub"] = iso  # el RSS trae fecha exacta
         print("  %s -> %d items" % (url.split("/")[-1][:30], len(items)))
+
+    # purga lo que ya estaba guardado pero no es del Mundial (misma confed / torneo distinto)
+    before = len(store)
+    store = {k: m for k, m in store.items() if k not in BLOCK and is_mundial(m["a"], m["b"], None)}
+    if before != len(store): print("purgados (no-Mundial):", before - len(store))
 
     rows = sorted(store.values(), key=lambda m: m.get("pub", ""), reverse=True)[:CAP]
     json.dump(rows, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))

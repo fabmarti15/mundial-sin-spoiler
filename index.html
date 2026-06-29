@@ -161,6 +161,27 @@ const NATIONS = {};
   ['jordania','🇯🇴','Jordania'],['nueva zelanda','🇳🇿','Nueva Zelanda'],['china','🇨🇳','China']
 ].forEach(([k,f,name]) => NATIONS[k] = { flag:f, name:name });
 
+// confederación de cada selección + torneos a excluir (para mostrar SOLO el Mundial)
+const CONFED = {};
+[['CONMEBOL',['argentina','brasil','uruguay','chile','colombia','peru','ecuador','paraguay','bolivia','venezuela']],
+ ['CONCACAF',['mexico','estados unidos','canada','costa rica','panama','honduras','jamaica','haiti','el salvador','guatemala','curazao']],
+ ['CAF',['marruecos','senegal','tunez','argelia','egipto','nigeria','ghana','camerun','costa de marfil','sudafrica','mali','cabo verde','angola','rd congo']],
+ ['AFC',['japon','corea del sur','corea','australia','arabia saudita','iran','catar','qatar','irak','uzbekistan','jordania','china']],
+ ['OFC',['nueva zelanda']],
+ ['UEFA',['espana','francia','inglaterra','alemania','italia','portugal','paises bajos','holanda','belgica','croacia','suiza','dinamarca','suecia','noruega','polonia','austria','serbia','escocia','gales','ucrania','turquia','grecia','rumania','hungria','chequia','republica checa','eslovenia','eslovaquia','irlanda','rusia']]
+].forEach(([g,ks]) => ks.forEach(k => CONFED[k] = g));
+const EXCLUDE = ['sudamericano','eliminatoria','amistoso','copa america','libertadores','sudamericana',
+  'nations league','liga de naciones','intercontinental','mundial de clubes','sub 20','sub 17','sub 23',
+  'sub20','sub17','u20','u17','femenino','femenina','clasificatorias','retro','laliga','la liga',
+  'premier','serie a','bundesliga','champions','gold cup','copa oro','afcon'];
+function isMundial(a, b, title){
+  const n = norm(title || '');
+  if(EXCLUDE.some(k => n.includes(k))) return false;
+  const ca = CONFED[a], cb = CONFED[b];
+  if(ca && ca === cb && ca !== 'UEFA') return false;  // 2 de la misma confed (no-UEFA) => no es Mundial
+  return true;
+}
+
 /* ===== Utils ===== */
 function norm(s){
   return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
@@ -290,7 +311,7 @@ async function load(forced){
   // 1) matches.json (mismo origen, sin relay) — lo refresca solo el bot del repo cada par de horas
   try{
     const r = await fetch('matches.json?t=' + Date.now(), { cache:'no-store' });
-    if(r.ok){ const arr = await r.json(); if(Array.isArray(arr)){ online = true; arr.forEach(m => addMatch(m, true)); } }
+    if(r.ok){ const arr = await r.json(); if(Array.isArray(arr)){ online = true; arr.forEach(m => { if(isMundial(m.a, m.b, '')) addMatch(m, true); }); } }
   }catch(e){}
   saveStore(); render();
   if(STORE.size) stamp();              // ya hay lista: marca "listo" y no esperes al relay
@@ -302,7 +323,7 @@ async function load(forced){
     if(!xml) continue; online = true;
     for(const it of parseFeed(xml)){
       const mm = extractMatch(it.title);
-      if(mm && norm(it.title).includes('resumen')) addMatch({ id:it.id, a:mm.a, b:mm.b, pub:it.pub }, true);
+      if(mm && norm(it.title).includes('resumen') && isMundial(mm.a, mm.b, it.title)) addMatch({ id:it.id, a:mm.a, b:mm.b, pub:it.pub }, true);
     }
   }
   saveStore(); render();
