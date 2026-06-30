@@ -68,6 +68,10 @@
   #coverTxt{color:var(--muted);font-size:13px}
   #coverActions{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
   .bigplay{display:none;font-size:18px;padding:16px 30px;border-radius:14px}
+  #unmute{display:none;position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:5;
+    background:var(--accent);color:#06120b;font-size:15px;font-weight:800;padding:12px 20px;
+    border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
   .topbar .ttl{font-weight:800;font-size:15px;color:var(--txt)}
   .close{background:var(--card2);color:var(--txt);border:1px solid var(--line);padding:8px 13px;border-radius:10px}
@@ -119,6 +123,7 @@
           <button class="ghost" onclick="closePlayer()">✕ Cerrar</button>
         </div>
       </div>
+      <button id="unmute" onclick="unmuteNow()">🔊 Toca para activar el sonido</button>
     </div>
   </div>
 </div>
@@ -425,40 +430,53 @@ function openPlayer(id, label){
   if(!ytReady){ pending = { id, label }; loadYTApi(); return; }
   reallyOpen(id, label);
 }
+function showUnmute(on){ document.getElementById('unmute').style.display = on ? 'block' : 'none'; }
 function armTapFallback(){
   clearTimeout(tapTimer);
-  // si en 3,5s no arrancó solo (autoplay bloqueado), ofrece botón de play
+  // respaldo: si en 5s ni siquiera arrancó silenciado, ofrece botón de play
   tapTimer = setTimeout(() => {
     if(document.getElementById('ytcover').style.display !== 'none') coverMode('tap');
-  }, 3500);
+  }, 5000);
 }
 function reallyOpen(id){
-  if(player && player.loadVideoById){ player.loadVideoById(id); player.playVideo(); armTapFallback(); return; }
+  // arranca SILENCIADO: el navegador siempre permite autoplay mudo (sin gesto) -> el video sí parte
+  if(player && player.loadVideoById){ player.mute(); player.loadVideoById(id); player.playVideo(); armTapFallback(); return; }
   player = new YT.Player('ytmount', {
     videoId: id,
-    playerVars: { autoplay:1, rel:0, modestbranding:1, playsinline:1, controls:1, iv_load_policy:3, fs:1 },
+    playerVars: { autoplay:1, mute:1, rel:0, modestbranding:1, playsinline:1, controls:1, iv_load_policy:3, fs:1 },
     events: {
-      onReady: e => { e.target.playVideo(); armTapFallback(); },
+      onReady: e => { e.target.mute(); e.target.playVideo(); armTapFallback(); },
       onStateChange: onState
     }
   });
 }
-function manualPlay(){
+function manualPlay(){           // respaldo si ni el mudo arrancó
   clearTimeout(tapTimer);
-  try{ player.unMute(); }catch(e){}
-  try{ player.playVideo(); }catch(e){}
+  try{ player.mute(); player.playVideo(); }catch(e){}
+}
+function unmuteNow(){            // gesto del usuario -> activa sonido
+  try{ player.unMute(); player.setVolume(100); }catch(e){}
+  showUnmute(false);
 }
 function onState(e){
   const S = YT.PlayerState;
-  if(e.data === S.PLAYING){ clearTimeout(tapTimer); coverMode('hide'); document.getElementById('ytmask').style.opacity = '0'; }
+  if(e.data === S.PLAYING){
+    clearTimeout(tapTimer);
+    coverMode('hide');
+    document.getElementById('ytmask').style.opacity = '0';
+    let muted = true;
+    try{ muted = player.isMuted(); }catch(e){}
+    showUnmute(muted);          // si está mudo, ofrece el botón de sonido
+  }
   else if(e.data === S.PAUSED){ document.getElementById('ytmask').style.opacity = '1'; }
-  else if(e.data === S.ENDED){ coverMode('end'); }
+  else if(e.data === S.ENDED){ showUnmute(false); coverMode('end'); }
 }
-function replay(){ if(player && currentId){ coverMode('load'); player.seekTo(0); player.playVideo(); armTapFallback(); } }
+function replay(){ if(player && currentId){ coverMode('load'); player.playVideo(); armTapFallback(); } }
 function closePlayer(){
   document.getElementById('modal').classList.remove('on');
   document.body.style.overflow = '';
   clearTimeout(tapTimer);
+  showUnmute(false);
   try{ if(player && player.stopVideo) player.stopVideo(); }catch(e){}
   coverMode('load');
 }
