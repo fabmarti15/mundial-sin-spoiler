@@ -57,21 +57,19 @@
     box-shadow:0 20px 70px rgba(0,0,0,.6)}
   .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   #ytmount{position:absolute;inset:0;width:100%;height:100%}
-  #ytmask{position:absolute;top:0;left:0;right:0;height:62px;background:#000;
-    opacity:1;transition:opacity .2s;pointer-events:none;z-index:3}
-  .stage:hover #ytmask{opacity:1}
+  /* franja superior que tapa el TÍTULO de YouTube mientras reproduce (degradado para no comerse el video) */
+  #titlebar{position:absolute;top:0;left:0;right:0;height:66px;
+    background:linear-gradient(to bottom,#000 0%,#000 58%,rgba(0,0,0,0) 100%);
+    display:none;pointer-events:none;z-index:3}
+  /* portada negra con botón ▶ (tapa la miniatura hasta que tocas) */
   #ytcover{position:absolute;inset:0;background:#000;z-index:4;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
-  .spin{width:34px;height:34px;border:3px solid #2a3540;border-top-color:var(--accent);
-    border-radius:50%;animation:sp 1s linear infinite}
-  @keyframes sp{to{transform:rotate(360deg)}}
-  #coverTxt{color:var(--muted);font-size:13px}
-  #coverActions{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
-  .bigplay{display:none;font-size:18px;padding:16px 30px;border-radius:14px}
-  #unmute{display:none;position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:5;
-    background:var(--accent);color:#06120b;font-size:15px;font-weight:800;padding:12px 20px;
-    border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:pulse 1.6s ease-in-out infinite}
-  @keyframes pulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
+    align-items:center;justify-content:center;gap:16px;text-align:center;padding:20px;cursor:pointer}
+  .bigplay2{width:84px;height:84px;border-radius:50%;background:var(--accent);color:#06120b;
+    font-size:34px;display:flex;align-items:center;justify-content:center;padding-left:6px}
+  #coverHint{color:var(--muted);font-size:14px}
+  .ytlinkbar{margin-top:12px;text-align:center}
+  .ytlinkbar a{display:inline-block;background:var(--card2);border:1px solid var(--line);
+    color:var(--txt);text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:11px}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
   .topbar .ttl{font-weight:800;font-size:15px;color:var(--txt)}
   .close{background:var(--card2);color:var(--txt);border:1px solid var(--line);padding:8px 13px;border-radius:10px}
@@ -99,9 +97,10 @@
 <div class="grid" id="grid"></div>
 
 <div class="note">
-  <b>Cómo funciona:</b> la lista se actualiza sola cada vez que abres esta página (jala lo último que subió el canal).
-  Solo muestra partidos del Mundial, sin el resultado. Al darle play tapa el título, la miniatura y los videos sugeridos del final.<br>
-  <b>Tip:</b> ábrelo en <b>Chrome</b> para que arranque con sonido al toque. Si la lista no carga, dale a <b>↻ Actualizar</b> (a veces el relay tarda).
+  <b>Cómo funciona:</b> la lista se actualiza sola cada vez que abres esta página. Solo muestra partidos del Mundial, sin el resultado.
+  Al tocar un partido se abre una portada negra; le das <b>▶ una vez</b> y reproduce con sonido, tapando el nombre.
+  Al final puede mostrar otros videos del canal (ahí cierra nomás).<br>
+  <b>Tip:</b> desde el celular usa <b>“Abrir en YouTube”</b> para castear a la tele. Si la lista no carga, dale a <b>↻ Actualizar</b>.
 </div>
 
 <!-- PLAYER -->
@@ -113,17 +112,14 @@
     </div>
     <div class="stage" id="stage">
       <div id="ytmount"></div>
-      <div id="ytmask"></div>
-      <div id="ytcover">
-        <div class="spin" id="coverSpin"></div>
-        <div id="coverTxt">Cargando sin spoiler…</div>
-        <button id="coverTap" class="bigplay" onclick="manualPlay()">▶ Reproducir</button>
-        <div id="coverActions">
-          <button onclick="replay()">↻ Ver de nuevo</button>
-          <button class="ghost" onclick="closePlayer()">✕ Cerrar</button>
-        </div>
+      <div id="titlebar"></div>
+      <div id="ytcover" onclick="play()">
+        <div class="bigplay2">▶</div>
+        <div id="coverHint">Toca para reproducir (sin spoiler)</div>
       </div>
-      <button id="unmute" onclick="unmuteNow()">🔊 Toca para activar el sonido</button>
+    </div>
+    <div class="ytlinkbar">
+      <a id="ytlink" href="#" target="_blank" rel="noopener">▶ Abrir en YouTube (para castear a la tele)</a>
     </div>
   </div>
 </div>
@@ -376,19 +372,8 @@ function render(){
 }
 function markSeen(id){ const s = seenSet(); if(!s.has(id)){ s.add(id); localStorage.setItem('dsp_seen', JSON.stringify([...s])); render(); } }
 
-/* ===== Player a prueba de spoilers ===== */
-let player = null, ytReady = false, pending = null, currentId = null;
-function loadYTApi(){
-  if(window.YT && window.YT.Player){ ytReady = true; return; }
-  if(document.getElementById('ytapi')) return;
-  const s = document.createElement('script'); s.id = 'ytapi';
-  s.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(s);
-}
-window.onYouTubeIframeAPIReady = function(){
-  ytReady = true;
-  if(pending){ const p = pending; pending = null; reallyOpen(p.id, p.label); }
-};
+/* ===== Player: reproductor nativo de YouTube, arranca con TU toque (gesto real = siempre funciona) ===== */
+let currentId = null, titleTimer = null;
 
 function parseId(url){
   if(!url) return null;
@@ -407,78 +392,39 @@ function playFromInput(){
   openPlayer(id, 'Video');
 }
 
-let tapTimer = null;
-// modos de la tapa negra: 'load' (cargando) | 'tap' (dale play tú) | 'end' (terminó) | 'hide'
-function coverMode(mode){
-  const cover = document.getElementById('ytcover');
-  const show = (id, on, disp) => { document.getElementById(id).style.display = on ? (disp || 'block') : 'none'; };
-  if(mode === 'hide'){ cover.style.display = 'none'; return; }
-  cover.style.display = 'flex';
-  document.getElementById('ytmask').style.opacity = '1';
-  show('coverSpin', mode === 'load');
-  show('coverTxt',  mode === 'load');
-  show('coverTap',  mode === 'tap', 'inline-flex');
-  show('coverActions', mode === 'end', 'flex');
-}
-
+// abre el modal con la PORTADA NEGRA (sin iframe todavía => no se ve miniatura ni nombre)
 function openPlayer(id, label){
   currentId = id;
   document.getElementById('mtitle').textContent = label || 'Reproduciendo…';
+  document.getElementById('ytlink').href = 'https://www.youtube.com/watch?v=' + id;
+  document.getElementById('ytmount').innerHTML = '';        // saca cualquier video previo
+  document.getElementById('ytcover').style.display = 'flex'; // muestra la portada negra con ▶
+  document.getElementById('titlebar').style.display = 'none';
   document.getElementById('modal').classList.add('on');
   document.body.style.overflow = 'hidden';
-  coverMode('load');
-  if(!ytReady){ pending = { id, label }; loadYTApi(); return; }
-  reallyOpen(id, label);
 }
-function showUnmute(on){ document.getElementById('unmute').style.display = on ? 'block' : 'none'; }
-function armTapFallback(){
-  clearTimeout(tapTimer);
-  // respaldo: si en 5s ni siquiera arrancó silenciado, ofrece botón de play
-  tapTimer = setTimeout(() => {
-    if(document.getElementById('ytcover').style.display !== 'none') coverMode('tap');
-  }, 5000);
+
+// TU toque crea el iframe con autoplay => el navegador lo permite (es un gesto real) y suena
+function play(){
+  if(!currentId) return;
+  const ifr = document.createElement('iframe');
+  ifr.src = 'https://www.youtube.com/embed/' + currentId +
+            '?autoplay=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3';
+  ifr.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+  ifr.setAttribute('allowfullscreen', '');
+  const mount = document.getElementById('ytmount');
+  mount.innerHTML = '';
+  mount.appendChild(ifr);
+  document.getElementById('ytcover').style.display = 'none'; // saca la portada
+  document.getElementById('titlebar').style.display = 'block'; // tapa el nombre arriba mientras reproduce
 }
-function reallyOpen(id){
-  // arranca SILENCIADO: el navegador siempre permite autoplay mudo (sin gesto) -> el video sí parte
-  if(player && player.loadVideoById){ player.mute(); player.loadVideoById(id); player.playVideo(); armTapFallback(); return; }
-  player = new YT.Player('ytmount', {
-    videoId: id,
-    playerVars: { autoplay:1, mute:1, rel:0, modestbranding:1, playsinline:1, controls:1, iv_load_policy:3, fs:1 },
-    events: {
-      onReady: e => { e.target.mute(); e.target.playVideo(); armTapFallback(); },
-      onStateChange: onState
-    }
-  });
-}
-function manualPlay(){           // respaldo si ni el mudo arrancó
-  clearTimeout(tapTimer);
-  try{ player.mute(); player.playVideo(); }catch(e){}
-}
-function unmuteNow(){            // gesto del usuario -> activa sonido
-  try{ player.unMute(); player.setVolume(100); }catch(e){}
-  showUnmute(false);
-}
-function onState(e){
-  const S = YT.PlayerState;
-  if(e.data === S.PLAYING){
-    clearTimeout(tapTimer);
-    coverMode('hide');
-    document.getElementById('ytmask').style.opacity = '0';
-    let muted = true;
-    try{ muted = player.isMuted(); }catch(e){}
-    showUnmute(muted);          // si está mudo, ofrece el botón de sonido
-  }
-  else if(e.data === S.PAUSED){ document.getElementById('ytmask').style.opacity = '1'; }
-  else if(e.data === S.ENDED){ showUnmute(false); coverMode('end'); }
-}
-function replay(){ if(player && currentId){ coverMode('load'); player.playVideo(); armTapFallback(); } }
+
 function closePlayer(){
   document.getElementById('modal').classList.remove('on');
   document.body.style.overflow = '';
-  clearTimeout(tapTimer);
-  showUnmute(false);
-  try{ if(player && player.stopVideo) player.stopVideo(); }catch(e){}
-  coverMode('load');
+  document.getElementById('ytmount').innerHTML = '';          // detiene el video
+  document.getElementById('titlebar').style.display = 'none';
+  document.getElementById('ytcover').style.display = 'flex';
 }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closePlayer(); });
 document.getElementById('link').addEventListener('keydown', e => { if(e.key === 'Enter') playFromInput(); });
