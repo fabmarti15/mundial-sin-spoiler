@@ -207,9 +207,9 @@ function nationByKey(k){ return NATIONS[k] || { flag:'⚽', name:k }; }
 // del título saca el enfrentamiento SIN el marcador
 function extractMatch(title){
   const segs = title.split('|').map(s => s.trim());
-  // 1) con marcador:  "Equipo 0–1 Equipo"
+  // 1) con marcador, incluso por penales "Equipo 1 (3)–(4) 1 Equipo" o simple "Equipo 0–1 Equipo"
   for(const seg of segs){
-    const m = seg.match(/^(.+?)\s+\d{1,2}\s*[–\-—:]\s*\d{1,2}\s+(.+?)$/u);
+    const m = seg.match(/^(.+?)\s+\d[\d\s()]*[–\-—:][\d\s()]*\d\s+(.+?)$/u);
     if(m){
       const a = resolveNation(m[1]), b = resolveNation(m[2]);
       if(a && b) return { a, b };
@@ -282,8 +282,8 @@ function parseFeed(xml){
 /* ===== Store: junta semilla + RSS + scrape + memoria (localStorage) ===== */
 const STORE = new Map();              // id -> {id, a, b, pub}
 function loadStore(){
-  try{ JSON.parse(localStorage.getItem('dsp_matches')||'[]').forEach(m => STORE.set(m.id, m)); }catch(e){}
-  SEED.forEach(m => { if(!STORE.has(m.id)) STORE.set(m.id, m); });
+  try{ JSON.parse(localStorage.getItem('dsp_matches')||'[]').forEach(m => { if(isMundial(m.a, m.b, '')) STORE.set(m.id, m); }); }catch(e){}
+  SEED.forEach(m => { if(!STORE.has(m.id) && isMundial(m.a, m.b, '')) STORE.set(m.id, m); });
 }
 function saveStore(){ localStorage.setItem('dsp_matches', JSON.stringify([...STORE.values()])); }
 function addMatch(m, exact){
@@ -293,7 +293,14 @@ function addMatch(m, exact){
   if(exact && m.pub) ex.pub = m.pub;  // el RSS trae fecha exacta y corrige la aprox
 }
 function currentList(){
-  return [...STORE.values()].sort((x,y) => new Date(y.pub) - new Date(x.pub)).slice(0, MAX_CARDS);
+  const sorted = [...STORE.values()].sort((x,y) => new Date(y.pub) - new Date(x.pub));
+  const seenPair = new Set(), out = [];   // de-dup por enfrentamiento (mismo partido subido 2 veces)
+  for(const m of sorted){
+    const k = [m.a, m.b].sort().join('|');
+    if(seenPair.has(k)) continue;
+    seenPair.add(k); out.push(m);
+  }
+  return out.slice(0, MAX_CARDS);
 }
 
 async function load(forced){

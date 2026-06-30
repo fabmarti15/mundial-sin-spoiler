@@ -68,9 +68,10 @@ def resolve(s):
             if best is None or len(k) > len(best): best = k
     return best
 
+SCORE = re.compile(r"^(.+?)\s+\d[\d\s()]*[–\-—:][\d\s()]*\d\s+(.+?)$")  # admite penales "1 (3)–(4) 1"
 def extract(title):
     for seg in [s.strip() for s in title.split("|")]:
-        m = re.match(r"^(.+?)\s+\d{1,2}\s*[–\-—:]\s*\d{1,2}\s+(.+?)$", seg)
+        m = SCORE.match(seg)
         if m:
             a, b = resolve(m.group(1)), resolve(m.group(2))
             if a and b: return a, b
@@ -123,11 +124,11 @@ def from_html(html):
     for c in html.split('"videoRenderer":{')[1:]:
         vid = re.search(r'"videoId":"([\w-]{11})"', c)
         tt = re.search(r'"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"', c)
-        add(vid.group(1) if vid else None, tt.group(1) if tt else None, c[:1500])
+        add(vid.group(1) if vid else None, tt.group(1) if tt else None, c[:6000])
     for c in html.split('"lockupViewModel":{')[1:]:
         vid = re.search(r'"contentId":"([\w-]{11})"', c)
         tt = re.search(r'"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"', c)
-        add(vid.group(1) if vid else None, tt.group(1) if tt else None, c[:1500])
+        add(vid.group(1) if vid else None, tt.group(1) if tt else None, c[:6000])
     return out
 
 def main():
@@ -145,6 +146,8 @@ def main():
         ("rss",  "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID),
         ("html", "https://www.youtube.com/channel/%s/videos" % CHANNEL_ID),
         ("html", "https://www.youtube.com/channel/%s/search?query=resumen" % CHANNEL_ID),
+        ("html", "https://www.youtube.com/channel/%s/search?query=resumen+mundial" % CHANNEL_ID),
+        ("html", "https://www.youtube.com/channel/%s/search?query=resumen+penales" % CHANNEL_ID),
     ]
     found = 0
     for kind, url in sources:
@@ -168,9 +171,14 @@ def main():
     store = {k: m for k, m in store.items() if k not in BLOCK and is_mundial(m["a"], m["b"], None)}
     if before != len(store): print("purgados (no-Mundial):", before - len(store))
 
-    rows = sorted(store.values(), key=lambda m: m.get("pub", ""), reverse=True)[:CAP]
+    # de-dup por enfrentamiento (mismo partido subido 2 veces) -> queda el más nuevo
+    bypair = {}
+    for m in sorted(store.values(), key=lambda m: m.get("pub", ""), reverse=True):
+        k = "|".join(sorted([m["a"], m["b"]]))
+        if k not in bypair: bypair[k] = m
+    rows = sorted(bypair.values(), key=lambda m: m.get("pub", ""), reverse=True)[:CAP]
     json.dump(rows, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    print("nuevos: %d | total guardado: %d" % (found, len(rows)))
+    print("nuevos: %d | dedup: %d | total guardado: %d" % (found, len(store) - len(bypair), len(rows)))
 
 if __name__ == "__main__":
     main()

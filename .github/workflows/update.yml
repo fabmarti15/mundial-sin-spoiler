@@ -2,7 +2,7 @@ name: actualizar-resumenes
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # cada 2 horas
+    - cron: '5,35 * * * *'   # cada 30 min (en el Mundial salen seguido y se entierran rápido)
   workflow_dispatch:         # botón para correrlo a mano
 
 permissions:
